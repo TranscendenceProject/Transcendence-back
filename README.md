@@ -1,4 +1,4 @@
-# login
+
 
 ## 실행
 
@@ -14,6 +14,14 @@ _/Transcendence-back/reminder_
         deactivate 
     ```
 
+_/Transcendence-back/reminder_
+
+- 패키지 설치
+    ```
+        pip install -r requirements.txt 
+    ```
+
+
 _/Transcendence-back/reminder/remindeProject_
 
 - 서버 실행
@@ -28,7 +36,7 @@ _/Transcendence-back/reminder/remindeProject_
 
 ----
 
-## 메서드 설명
+## Login 메서드 설명
 
 ### get_resource_owner_42_id
 
