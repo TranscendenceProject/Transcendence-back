@@ -1,6 +1,36 @@
 # login
 
-## get_resource_owner_42_id
+## 실행
+
+_/Transcendence-back/reminder_ 
+
+- venv 가상환경 활성화
+    ```
+        source venv/bin/activate
+    ```
+  
+- venv 가상환경 비활성화
+    ```
+        deactivate 
+    ```
+
+_/Transcendence-back/reminder/remindeProject_
+
+- 서버 실행
+    ```
+        python manage.py runserver
+    ```
+  
+- 서버 종료
+    ```
+        CONTROL-C.
+    ```
+
+----
+
+## 메서드 설명
+
+### get_resource_owner_42_id
 
 1. 매개변수
 
@@ -26,7 +56,7 @@
        - return HttpResponse('Error: ' + str(e))
      
 
-## get_JWT_token
+### get_JWT_token
 
 1. 매개변수
 
