@@ -23,7 +23,7 @@ def get_resource_owner_42_id(request, code):
             json={
                 'grant_type': 'authorization_code',
                 'client_id': 'u-s4t2ud-b677e803809d207e81ae3a321bdf542af8d318ca330d81824e4b972bca224918',
-                'client_secret': "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",
+                'client_secret': "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",
                 'code': code,
                 'redirect_uri': "http://127.0.0.1"
             },
