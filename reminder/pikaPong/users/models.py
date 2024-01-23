@@ -9,6 +9,7 @@ class UserProfile(models.Model):
     otp_number = models.CharField(max_length=6, null=True, blank=True)
     bio = models.TextField(blank=True, default="")  # About me
 
+
     def __str__(self):
         return self.intra_id
 
