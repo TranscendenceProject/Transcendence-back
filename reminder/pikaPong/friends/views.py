@@ -1,10 +1,12 @@
 from rest_framework.decorators import api_view
+from django.views.decorators.csrf import csrf_exempt
 
 from .models import UserProfile, Friend
 
 
 # Create your views here.
 @api_view(['POST'])
+@csrf_exempt
 def add_friend_to_user_profile(request):
     intra_pk_id = request.data.get('intra_pk_id')
     friends_pk_id = request.data.get('friends_pk_id')

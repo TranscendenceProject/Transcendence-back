@@ -117,7 +117,7 @@ def get_JWT_token(request):
     except Exception as e:
         return JsonResponse({'status': 'Error', 'message': str(e)})
 
-
+@csrf_exempt
 def get_user_profile_by_access_token(access_token):
     try:
         # access_token을 사용하여 사용자를 찾음
@@ -139,6 +139,7 @@ def get_user_profile_by_access_token(access_token):
 # 쿼리 파라미터가 있는 경우 -> 다른 사람의 정보를 조회
 # 쿼리 파라미터가 없는 경우 -> 내 정보를 조회
 @api_view(['GET'])
+@csrf_exempt
 def get_user_info(request):
     # 쿼리 파라미터에서 intra_pk_id를 가져옴
     jwt_token = request.META.get("HTTP_JWT")
@@ -191,6 +192,7 @@ def get_user_info(request):
         return Response({'error': 'JWT 토큰이 요청에 포함되어야 합니다.'}, status=400)
 
 @api_view(['POST'])
+@csrf_exempt
 def set_user_info(request):
 
     jwt_token = request.META.get("HTTP_JWT")
@@ -221,6 +223,7 @@ def set_user_info(request):
         return Response({'error': 'JWT 토큰이 요청에 포함되어야 합니다.'}, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
+@csrf_exempt
 def set_user_info_image(request):
 
     jwt_token = request.META.get("HTTP_JWT")
@@ -254,7 +257,6 @@ def set_user_info_image(request):
             return Response({'error': '유저를 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
     else:
         return Response({'error': 'JWT 토큰이 요청에 포함되어야 합니다.'}, status=status.HTTP_400_BAD_REQUEST)
-
 
 def send_email_with_otp(otp, user_profile):
     # otp 토큰 발급
@@ -295,7 +297,6 @@ def save_user_data(access_token):
         # 이미 존재하는 owner_id의 경우
         print("이미존재하는 계정")
         return False, UserProfile.objects.get(intra_pk_id=owner_id)
-
 
 def generate_otp(length=6):
     return ''.join([secrets.choice('0123456789') for _ in range(length)])
