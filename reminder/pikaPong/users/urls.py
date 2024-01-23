@@ -24,13 +24,15 @@ from rest_framework_simplejwt.views import (
 )
 
 urlpatterns = [
-    path('login/create/<str:code>/', views.get_resource_owner_42_id),
-    path('login/verify/', views.get_JWT_token, name='get_jwt_token'),
+    path('login/create/<str:code>', views.get_resource_owner_42_id),
+    path('login/verify', views.get_JWT_token, name='get_jwt_token'),
 
-    path('info/read/<str:jwt_token>/', views.get_user_info, name='get_user_info'),
-    path('info/update/<str:jwt_token>/', views.set_user_info, name='set_user_info'),
+    path('info/read', views.get_user_info, name='get_user_info'),
+    path('info/update', views.set_user_info, name='set_user_info'),
+    path('info/update/image', views.set_user_info_image, name='set_user_info_image'),
 
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('api/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
+    path('token/', views.CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh', views.CustomTokenRefreshView.as_view(), name='token_refresh'),
+    path('api/token/verify', TokenVerifyView.as_view(), name='token_verify'),
 ]
+

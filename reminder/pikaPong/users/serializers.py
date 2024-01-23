@@ -1,14 +1,18 @@
+from datetime import datetime, timedelta
+
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+from rest_framework_simplejwt.state import token_backend
+
 from .models import UserProfile
 
+
 class UserProfileSerializer(serializers.ModelSerializer):
-    # User 모델 관련 필드 추가
-    user_id = serializers.CharField(source='user.id', read_only=True)
-    # email = serializers.EmailField(source='user.email', read_only=True)
 
     class Meta:
         model = UserProfile
-        fields = ['user_id', 'intra_pk_id', 'intra_id', 'nick_name', 'profile_picture', 'bio']
+        fields = ['intra_pk_id', 'intra_id', 'nick_name', 'profile_picture', 'bio']
 
     def update(self, instance, validated_data):
         # nick_name 필드 업데이트
@@ -25,3 +29,28 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
         instance.save()  # 변경된 필드 저장
         return instance
+
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        # The default result (access/refresh tokens)
+        data = super(CustomTokenObtainPairSerializer, self).validate(attrs)
+        user_profile = UserProfile.objects.filter(id=self.user.id)
+
+        # Custom data you want to include
+        data.update({'intra_pk_id': user_profile.intra_pk_id,})
+        data.update({'exp': datetime.utcnow() + timedelta(hours=1)})
+        # and everything else you want to send in the response
+        return data
+
+class CustomTokenRefreshSerializer(TokenRefreshSerializer):
+    def validate(self, attrs):
+        data = super(CustomTokenRefreshSerializer, self).validate(attrs)
+        decoded_payload = token_backend.decode(data['access'], verify=True)
+        user_uid=decoded_payload['intra_pk_id']
+
+        print(user_uid)
+        # add filter query
+        data.update({'intra_pk_id': user_uid})
+        data.update({'exp': datetime.utcnow() + timedelta(hours=1)})
+        return data
