@@ -1,6 +1,7 @@
 import json
 import secrets
 from datetime import datetime, timedelta
+from django.db.models import Q
 
 import jwt
 import requests
@@ -14,7 +15,6 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.views import TokenRefreshView
 
@@ -22,6 +22,7 @@ from .models import UserProfile
 from .serializers import CustomTokenObtainPairSerializer
 from .serializers import CustomTokenRefreshSerializer
 from .serializers import UserProfileSerializer
+from friends.models import Friends
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -94,7 +95,7 @@ def get_JWT_token(request):
             # UserProfile의 otp_number와 입력받은 otp를 비교
             if user_profile.otp_number == input_number:
                 # JWT 토큰 및 Refresh 토큰 생성
-                refresh = RefreshToken.for_user(user_profile)
+
                 jwt_payload = {
                     'intra_pk_id': user_profile.intra_pk_id,  # UserProfile의 실제 ID를 사용
                     'exp': datetime.utcnow() + timedelta(hours=1)
@@ -106,7 +107,6 @@ def get_JWT_token(request):
                 response_data = {
                     'status': 'OK',
                     'jwt_token': jwt_token,
-                    'refresh_token': str(refresh)
                 }
                 return JsonResponse(response_data)
             else:
@@ -148,6 +148,7 @@ def get_user_info(request):
         try:
             # JWT 인증
             decoded_payload = jwt.decode(jwt_token, settings.SECRET_KEY, algorithm='HS256')
+            print("JWT 토큰 인증 완료")
             intra_pk_id = decoded_payload['intra_pk_id']
             try:
                 user_profile = UserProfile.objects.get(intra_pk_id=intra_pk_id)
@@ -200,6 +201,7 @@ def set_user_info(request):
     if jwt_token:
         try:
             decoded_payload = jwt.decode(jwt_token, settings.SECRET_KEY, algorithm='HS256')
+            print("JWT 토큰 인증 완료")
             intra_pk_id = decoded_payload['intra_pk_id']
             user_profile = UserProfile.objects.get(intra_pk_id=intra_pk_id)
 
@@ -222,6 +224,53 @@ def set_user_info(request):
     else:
         return Response({'error': 'JWT 토큰이 요청에 포함되어야 합니다.'}, status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(['GET'])
+@csrf_exempt
+def search_user_profiles(request):
+    jwt_token = request.META.get("HTTP_JWT")
+
+    if jwt_token:
+        try:
+            decoded_payload = jwt.decode(jwt_token, settings.SECRET_KEY, algorithm='HS256')
+            print("JWT 토큰 인증 완료")
+            intra_pk_id = decoded_payload['intra_pk_id']
+            key_word = request.GET.get('key_word')  # URL query parameter for the search keyword
+
+            if not key_word:
+                return JsonResponse({'error': 'Missing key_word'}, status=400)
+
+            try:
+                # Step 1: Query UserProfile records where intra_id contains the key_word
+                user_profiles = UserProfile.objects.filter(Q(intra_id__icontains=key_word))
+
+                user_profiles_list = [{'intra_pk_id': user_profile.intra_pk_id, 'intra_id': user_profile.intra_id, 'nick_name': user_profile.nick_name, 'is_friend': False} for user_profile in user_profiles]
+                user_profile = UserProfile.objects.get(intra_pk_id=intra_pk_id)
+                # 친구 목록 조회
+                friends = Friends.objects.filter(user_profile=user_profile)
+                friends_list = [{'intra_pk_id': friend.user_profile.intra_pk_id, 'friend_name': friend.friend_name} for
+                                friend in friends]
+
+                # 친구 목록에 있는 intra_pk_id를 추출
+                friend_names = [friend['friend_name'] for friend in friends_list]
+
+                # user_profiles_list에서 각 항목에 대해 친구 여부 확인 및 업데이트
+                for user_profile in user_profiles_list:
+                    if user_profile['intra_id'] in friend_names:
+                        user_profile['is_friend'] = True
+
+                return JsonResponse({'user_profiles': user_profiles_list}, safe=False, status=200)
+            except Exception as e:
+                return JsonResponse({'error': str(e)}, status=500)
+
+        except jwt.ExpiredSignatureError:
+            return Response({'error': 'JWT 토큰이 만료되었습니다.'}, status=status.HTTP_401_UNAUTHORIZED)
+        except jwt.DecodeError:
+            return Response({'error': 'JWT 토큰을 디코딩하는 데 실패했습니다.'}, status=status.HTTP_400_BAD_REQUEST)
+        except User.DoesNotExist:
+            return Response({'error': '유저를 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
+    else:
+        return Response({'error': 'JWT 토큰이 요청에 포함되어야 합니다.'}, status=status.HTTP_400_BAD_REQUEST)
+
 @api_view(['POST'])
 @csrf_exempt
 def set_user_info_image(request):
@@ -229,10 +278,9 @@ def set_user_info_image(request):
     jwt_token = request.META.get("HTTP_JWT")
 
     if jwt_token:
-        print("teest")
         try:
             decoded_payload = jwt.decode(jwt_token, settings.SECRET_KEY, algorithm='HS256')
-            intra_pk_id = decoded_payload['intra_pk_id']
+            print("JWT 토큰 인증 완료")
 
             file = request.FILES.get('profile_image')
             print(f"file")

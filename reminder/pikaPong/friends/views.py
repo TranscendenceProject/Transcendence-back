@@ -1,32 +1,95 @@
 from rest_framework.decorators import api_view
 from django.views.decorators.csrf import csrf_exempt
-
-from .models import UserProfile, Friend
-
+from django.http import JsonResponse
+from .models import UserProfile, Friends
+import jwt
+from django.conf import settings
+from rest_framework.response import Response
+from rest_framework import status
 
 # Create your views here.
 @api_view(['POST'])
 @csrf_exempt
 def add_friend_to_user_profile(request):
-    intra_pk_id = request.data.get('intra_pk_id')
-    friends_pk_id = request.data.get('friends_pk_id')
 
-    print(f"intra: {intra_pk_id}")
-    print(f"friends: {friends_pk_id}")
+    jwt_token = request.META.get("HTTP_JWT")
 
-    if not intra_pk_id or not friends_pk_id:
-        return JsonResponse({'error': 'Missing intra_pk_id or friends_pk_id'}, status=400)
+    if jwt_token:
+        try:
+            decoded_payload = jwt.decode(jwt_token, settings.SECRET_KEY, algorithm='HS256')
+            print("JWT 토큰 인증 완료")
+            intra_pk_id = decoded_payload['intra_pk_id']
+            friend_intra_pk_id = request.data.get('friend_intra_pk_id')  # 친구의 intra_pk_id
 
-    try:
-        user_profile = UserProfile.objects.get(pk=intra_pk_id)
-        friend = Friend.objects.get(pk=friends_pk_id)
-        friend.user_profile = user_profile
-        friend.save()
-        return JsonResponse({'message': 'Friend added successfully to UserProfile'}, status=200)
-    except UserProfile.DoesNotExist:
-        return JsonResponse({'error': 'UserProfile not found'}, status=404)
-    except Friend.DoesNotExist:
-        return JsonResponse({'error': 'Friend not found'}, status=404)
-    except Exception as e:
-        # 예외가 입력 오류로 인한 것이 아닐 경우 500으로 처리
-        return JsonResponse({'error': str(e)}, status=500)
+            print(intra_pk_id)
+            print(friend_intra_pk_id)
+
+            if not intra_pk_id or not friend_intra_pk_id:
+                return JsonResponse({'error': 'Missing intra_pk_id or friend_intra_pk_id'}, status=400)
+
+            if intra_pk_id == friend_intra_pk_id:
+                return JsonResponse({'error': '자기 자신은 친구로 등록할 수 없습니다.'}, status=400)
+
+            try:
+                user_profile = UserProfile.objects.get(intra_pk_id=intra_pk_id)
+                friend_user_profile = UserProfile.objects.get(intra_pk_id=friend_intra_pk_id)
+                print(f"user_profile: {user_profile}")
+                print(f"friend_user_profile: {friend_user_profile}")
+
+                # 새로운 Friends 객체 생성 또는 기존 객체 업데이트
+                friend, created = Friends.objects.get_or_create(
+                    user_profile=user_profile,
+                    friend_name=friend_user_profile.intra_id  # friend_name을 식별자로 사용
+                )
+
+                # 친구 객체에 friend_user_profile의 정보를 반영 (새로 생성된 경우)
+                if created:
+                    friend.friend_name = friend_user_profile.intra_id
+                    friend.save()
+
+                return JsonResponse({'message': f'{user_profile}가 성공적으로 {friend_user_profile}를 친구로 등록하였습니다.'}, status=200)
+            except UserProfile.DoesNotExist:
+                return JsonResponse({'error': 'UserProfile not found'}, status=404)
+            except Exception as e:
+                return JsonResponse({'error': str(e)}, status=500)
+
+        except jwt.ExpiredSignatureError:
+            return Response({'error': 'JWT 토큰이 만료되었습니다.'}, status=status.HTTP_401_UNAUTHORIZED)
+        except jwt.DecodeError:
+            return Response({'error': 'JWT 토큰을 디코딩하는 데 실패했습니다.'}, status=400)
+    else:
+        return Response({'error': 'JWT 토큰이 요청에 포함되어야 합니다.'}, status=400)
+
+@api_view(['GET'])
+def get_friends_of_user_profile(request):
+    jwt_token = request.META.get("HTTP_JWT")
+
+    if jwt_token:
+        try:
+            decoded_payload = jwt.decode(jwt_token, settings.SECRET_KEY, algorithm='HS256')
+            print("JWT 토큰 인증 완료")
+            intra_pk_id = request.GET.get('intra_pk_id')  # URL 쿼리에서 intra_pk_id 추출
+
+            if not intra_pk_id:
+                return JsonResponse({'error': 'Missing intra_pk_id'}, status=400)
+
+            try:
+                user_profile = UserProfile.objects.get(intra_pk_id=intra_pk_id)
+                friends = Friends.objects.filter(user_profile=user_profile)
+                print(friends)
+
+                friends_list = [{'friend_name': friend.friend_name, 'intra_pk_id': friend.user_profile.intra_pk_id} for friend in friends]
+
+                return JsonResponse({'friends': friends_list}, safe=False, status=200)
+            except UserProfile.DoesNotExist:
+                return JsonResponse({'error': 'UserProfile not found'}, status=404)
+            except Exception as e:
+                return JsonResponse({'error': str(e)}, status=500)
+
+        except jwt.ExpiredSignatureError:
+            return Response({'error': 'JWT 토큰이 만료되었습니다.'}, status=status.HTTP_401_UNAUTHORIZED)
+        except jwt.DecodeError:
+            return Response({'error': 'JWT 토큰을 디코딩하는 데 실패했습니다.'}, status=400)
+    else:
+        return Response({'error': 'JWT 토큰이 요청에 포함되어야 합니다.'}, status=400)
+

@@ -33,21 +33,24 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
-        # The default result (access/refresh tokens)
+        # 기본 토큰 결과 (access/refresh tokens)
         data = super(CustomTokenObtainPairSerializer, self).validate(attrs)
-        user_profile = UserProfile.objects.filter(id=self.user.id)
 
-        # Custom data you want to include
-        data.update({'intra_pk_id': user_profile.intra_pk_id,})
+        # self.user는 현재 인증된 사용자 객체를 나타냄
+        # UserProfile 객체 조회
+        user_profile = UserProfile.objects.get(intra_pk_id=self.user.intra_pk_id)
+
+        # 사용자 지정 데이터 포함
+        data.update({'intra_pk_id': user_profile.intra_pk_id})
         data.update({'exp': datetime.utcnow() + timedelta(hours=1)})
-        # and everything else you want to send in the response
+
         return data
 
 class CustomTokenRefreshSerializer(TokenRefreshSerializer):
     def validate(self, attrs):
         data = super(CustomTokenRefreshSerializer, self).validate(attrs)
         decoded_payload = token_backend.decode(data['access'], verify=True)
-        user_uid=decoded_payload['intra_pk_id']
+        user_uid = decoded_payload['intra_pk_id']
 
         print(user_uid)
         # add filter query

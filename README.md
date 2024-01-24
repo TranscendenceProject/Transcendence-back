@@ -2,7 +2,7 @@
 
 ## 실행
 
-_/Transcendence-back/reminder_ 
+_위치: /Transcendence-back/reminder_ 
 
 - venv 가상환경 활성화
     ```
@@ -49,8 +49,8 @@ _/Transcendence-back/reminder/remindeProject_
     - code 값을 통해 42서버에 유효성 검증을 하고 token_response을 얻음
     - token_response 으로 42pk(access_token) 값을 얻을 수 있으며 이를 통해 user의 DB 값을 받아옴
     - DB 값으로는 다음과 같음
-      - external_id(PK)
-      - external_name(email 전송을 위해 인트라 아이디 저장)
+      - intra_pk_id(PK)
+      - intra_id(email 전송을 위해 인트라 아이디 저장)
       - profile_picture(url 경로)
       - otp_number(생성된 otp 숫자 6자리, 유효 시간은 미구현)
       - 해당 이메일로 otp 번호 발송
