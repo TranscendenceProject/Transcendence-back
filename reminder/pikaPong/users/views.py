@@ -23,6 +23,9 @@ from .serializers import CustomTokenObtainPairSerializer
 from .serializers import CustomTokenRefreshSerializer
 from .serializers import UserProfileSerializer
 from friends.models import Friends
+from loginHistories.models import LoginHistories
+from django.utils import timezone
+from datetime import timedelta
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -243,7 +246,16 @@ def search_user_profiles(request):
                 # Step 1: Query UserProfile records where intra_id contains the key_word
                 user_profiles = UserProfile.objects.filter(Q(intra_id__icontains=key_word))
 
-                user_profiles_list = [{'intra_pk_id': user_profile.intra_pk_id, 'intra_id': user_profile.intra_id, 'nick_name': user_profile.nick_name, 'is_friend': False} for user_profile in user_profiles]
+                user_profiles_list = [
+                    {
+                        'intra_pk_id': user_profile.intra_pk_id,
+                        'intra_id': user_profile.intra_id,
+                        'nick_name': user_profile.nick_name,
+                        'is_login': False,
+                        'is_friend': False
+                    } for user_profile in user_profiles if user_profile.intra_pk_id != intra_pk_id
+                ]
+
                 user_profile = UserProfile.objects.get(intra_pk_id=intra_pk_id)
                 # 친구 목록 조회
                 friends = Friends.objects.filter(user_profile=user_profile)
@@ -258,6 +270,17 @@ def search_user_profiles(request):
                     if user_profile['intra_id'] in friend_names:
                         user_profile['is_friend'] = True
 
+                    latest_login_attempt = LoginHistories.objects.filter(
+                        intra_pk_id=user_profile['intra_pk_id']).order_by('-request_time').first()
+                    current_time = timezone.now()
+                    if latest_login_attempt:
+                        # 로그인 시도 시간과 현재 시간의 차이를 계산합니다.
+                        time_difference = current_time - latest_login_attempt.request_time
+
+                        # 차이가 5초 이하인 경우, 로그인 상태로 간주합니다.
+                        if time_difference.total_seconds() <= 30:
+                            user_profile['is_login'] = True
+
                 return JsonResponse({'user_profiles': user_profiles_list}, safe=False, status=200)
             except Exception as e:
                 return JsonResponse({'error': str(e)}, status=500)
@@ -267,7 +290,7 @@ def search_user_profiles(request):
         except jwt.DecodeError:
             return Response({'error': 'JWT 토큰을 디코딩하는 데 실패했습니다.'}, status=status.HTTP_400_BAD_REQUEST)
         except User.DoesNotExist:
-            return Response({'error': '유저를 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': '유저를 찾을 수 없습니다.'}, status=status.HTTP_200_OK)
     else:
         return Response({'error': 'JWT 토큰이 요청에 포함되어야 합니다.'}, status=status.HTTP_400_BAD_REQUEST)
 
