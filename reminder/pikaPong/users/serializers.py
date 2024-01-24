@@ -12,7 +12,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
-        fields = ['intra_pk_id', 'intra_id', 'nick_name', 'profile_picture', 'bio']
+        fields = ['intra_pk_id', 'intra_id', 'nick_name', 'profile_picture', 'bio', 'histories']
 
     def update(self, instance, validated_data):
         # nick_name 필드 업데이트

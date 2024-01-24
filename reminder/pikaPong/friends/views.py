@@ -78,7 +78,7 @@ def get_friends_of_user_profile(request):
                 friends = Friends.objects.filter(user_profile=user_profile)
                 print(friends)
 
-                friends_list = [{'friend_name': friend.friend_name, 'intra_pk_id': friend.user_profile.intra_pk_id} for friend in friends]
+                friends_list = [{'intra_pk_id': friend.user_profile.intra_pk_id, 'friend_name': friend.friend_name} for friend in friends]
 
                 return JsonResponse({'friends': friends_list}, safe=False, status=200)
             except UserProfile.DoesNotExist:
@@ -93,3 +93,42 @@ def get_friends_of_user_profile(request):
     else:
         return Response({'error': 'JWT 토큰이 요청에 포함되어야 합니다.'}, status=400)
 
+
+@api_view(['DELETE'])
+@csrf_exempt
+def remove_friend_from_user_profile(request):
+    jwt_token = request.META.get("HTTP_JWT")
+
+    if jwt_token:
+        try:
+            # JWT 토큰 인증
+            decoded_payload = jwt.decode(jwt_token, settings.SECRET_KEY, algorithms=['HS256'])
+            print("JWT 토큰 인증 완료")
+            intra_pk_id = decoded_payload['intra_pk_id']
+            friend_intra_pk_id = request.data.get('friend_intra_pk_id')  # 삭제할 친구의 intra_pk_id
+
+            if not intra_pk_id or not friend_intra_pk_id:
+                return JsonResponse({'error': 'Missing intra_pk_id or friend_intra_pk_id'}, status=400)
+
+            # 자기 자신을 삭제하려는 요청은 거부
+            if intra_pk_id == friend_intra_pk_id:
+                return JsonResponse({'error': '자기 자신을 친구에서 삭제할 수 없습니다.'}, status=400)
+
+            # 사용자 프로필과 친구 프로필 조회
+            user_profile = UserProfile.objects.get(intra_pk_id=intra_pk_id)
+            friend_user_profile = UserProfile.objects.get(intra_pk_id=friend_intra_pk_id)
+
+            # 해당 친구 관계를 찾아 삭제
+            friend = Friends.objects.get(user_profile=user_profile, friend_name=friend_user_profile.intra_id)
+            friend.delete()
+
+            return JsonResponse({'message': f'{user_profile}가 성공적으로 {friend_user_profile}를 친구 목록에서 삭제하였습니다.'}, status=200)
+        except UserProfile.DoesNotExist:
+            return JsonResponse({'error': 'UserProfile not found'}, status=404)
+        except Friends.DoesNotExist:
+            return JsonResponse({'error': '해당 친구 관계가 존재하지 않습니다.'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    else:
+        return JsonResponse({'error': 'JWT 토큰이 요청에 포함되어야 합니다.'}, status=400)
