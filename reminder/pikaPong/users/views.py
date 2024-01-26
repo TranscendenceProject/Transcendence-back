@@ -101,7 +101,7 @@ def get_JWT_token(request):
 
                 jwt_payload = {
                     'intra_pk_id': user_profile.intra_pk_id,  # UserProfile의 실제 ID를 사용
-                    'exp': datetime.utcnow() + timedelta(hours=1)
+                    'exp': datetime.utcnow() + timedelta(hours=24)
                 }
                 jwt_secret_key = settings.SECRET_KEY  # settings.py의 SECRET_KEY 사용
                 jwt_token = jwt.encode(jwt_payload, jwt_secret_key, algorithm='HS256').decode('utf-8')
