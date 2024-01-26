@@ -6,6 +6,9 @@ import jwt
 from django.conf import settings
 from rest_framework.response import Response
 from rest_framework import status
+from loginHistories.models import LoginHistories
+from django.utils import timezone
+from datetime import timedelta
 
 # Create your views here.
 @api_view(['POST'])
@@ -19,7 +22,7 @@ def add_friend_to_user_profile(request):
             decoded_payload = jwt.decode(jwt_token, settings.SECRET_KEY, algorithm='HS256')
             print("JWT 토큰 인증 완료")
             intra_pk_id = decoded_payload['intra_pk_id']
-            friend_intra_pk_id = request.data.get('friend_intra_pk_id')  # 친구의 intra_pk_id
+            friend_intra_pk_id = request.GET.get('friend_intra_pk_id')  # 친구의 intra_pk_id 쿼리로
 
             print(intra_pk_id)
             print(friend_intra_pk_id)
@@ -39,7 +42,8 @@ def add_friend_to_user_profile(request):
                 # 새로운 Friends 객체 생성 또는 기존 객체 업데이트
                 friend, created = Friends.objects.get_or_create(
                     user_profile=user_profile,
-                    friend_name=friend_user_profile.intra_id  # friend_name을 식별자로 사용
+                    friend_name=friend_user_profile.intra_id, # friend_name을 식별자로 사용
+                    friend_intra_pk_id=friend_user_profile.intra_pk_id
                 )
 
                 # 친구 객체에 friend_user_profile의 정보를 반영 (새로 생성된 경우)
@@ -48,6 +52,8 @@ def add_friend_to_user_profile(request):
                     friend.save()
 
                 return JsonResponse({'message': f'{user_profile}가 성공적으로 {friend_user_profile}를 친구로 등록하였습니다.'}, status=200)
+                # return JsonResponse({'friend.friend_intra_pk_id': friend.friend_intra_pk_id}, status=200)
+
             except UserProfile.DoesNotExist:
                 return JsonResponse({'error': 'UserProfile not found'}, status=404)
             except Exception as e:
@@ -68,7 +74,7 @@ def get_friends_of_user_profile(request):
         try:
             decoded_payload = jwt.decode(jwt_token, settings.SECRET_KEY, algorithm='HS256')
             print("JWT 토큰 인증 완료")
-            intra_pk_id = request.GET.get('intra_pk_id')  # URL 쿼리에서 intra_pk_id 추출
+            intra_pk_id = decoded_payload['intra_pk_id']
 
             if not intra_pk_id:
                 return JsonResponse({'error': 'Missing intra_pk_id'}, status=400)
@@ -78,11 +84,29 @@ def get_friends_of_user_profile(request):
                 friends = Friends.objects.filter(user_profile=user_profile)
                 print(friends)
 
-                friends_list = [{'intra_pk_id': friend.user_profile.intra_pk_id, 'friend_name': friend.friend_name} for friend in friends]
+                friends_list = [
+                    {
+                        'intra_pk_id': friend.friend_intra_pk_id,
+                        'friend_name': friend.friend_name,
+                        'is_login': False,
+                    } for friend in friends
+                ]
+
+                for friend in friends_list:
+                    latest_login_attempt = LoginHistories.objects.filter(
+                        intra_pk_id=friend['intra_pk_id']).order_by('-request_time').first()
+                    current_time = timezone.now()
+                    if latest_login_attempt:
+                        # 로그인 시도 시간과 현재 시간의 차이를 계산합니다.
+                        time_difference = current_time - latest_login_attempt.request_time
+
+                        # 차이가 5초 이하인 경우, 로그인 상태로 간주합니다.
+                        if time_difference.total_seconds() <= 300:
+                            friend['is_login'] = True
 
                 return JsonResponse({'friends': friends_list}, safe=False, status=200)
             except UserProfile.DoesNotExist:
-                return JsonResponse({'error': 'UserProfile not found'}, status=404)
+                return Response({'friends': []}, status=200)
             except Exception as e:
                 return JsonResponse({'error': str(e)}, status=500)
 
@@ -105,7 +129,7 @@ def remove_friend_from_user_profile(request):
             decoded_payload = jwt.decode(jwt_token, settings.SECRET_KEY, algorithms=['HS256'])
             print("JWT 토큰 인증 완료")
             intra_pk_id = decoded_payload['intra_pk_id']
-            friend_intra_pk_id = request.data.get('friend_intra_pk_id')  # 삭제할 친구의 intra_pk_id
+            friend_intra_pk_id = request.GET.get('friend_intra_pk_id')  # 친구의 intra_pk_id 쿼리로
 
             if not intra_pk_id or not friend_intra_pk_id:
                 return JsonResponse({'error': 'Missing intra_pk_id or friend_intra_pk_id'}, status=400)
@@ -118,8 +142,11 @@ def remove_friend_from_user_profile(request):
             user_profile = UserProfile.objects.get(intra_pk_id=intra_pk_id)
             friend_user_profile = UserProfile.objects.get(intra_pk_id=friend_intra_pk_id)
 
+            print(f"me: {user_profile}")
+            print(f"target: {friend_user_profile}")
+
             # 해당 친구 관계를 찾아 삭제
-            friend = Friends.objects.get(user_profile=user_profile, friend_name=friend_user_profile.intra_id)
+            friend = Friends.objects.get(user_profile=user_profile, friend_intra_pk_id=friend_user_profile.intra_pk_id)
             friend.delete()
 
             return JsonResponse({'message': f'{user_profile}가 성공적으로 {friend_user_profile}를 친구 목록에서 삭제하였습니다.'}, status=200)

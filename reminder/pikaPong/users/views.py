@@ -71,11 +71,11 @@ def get_resource_owner_42_id(request, code):
             else:
                 response_data = {'message': 'User profile already exists', 'access_token': access_token}
 
-            return JsonResponse(response_data)
+            return JsonResponse(response_data, status=status.HTTP_200_OK)
         else:
-            return JsonResponse({'message': 'Token response is not 200'})  # Error
+            return JsonResponse({'message': 'Token response is not 200'}, status=status.HTTP_400_BAD_REQUEST)  # Error
     except Exception as e:
-        return HttpResponse('Error: ' + str(e))
+        return HttpResponse('Error: ' + str(e), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @csrf_exempt
@@ -111,14 +111,14 @@ def get_JWT_token(request):
                     'status': 'OK',
                     'jwt_token': jwt_token,
                 }
-                return JsonResponse(response_data)
+                return JsonResponse(response_data, status=status.HTTP_200_OK)
             else:
-                return JsonResponse({'status': 'NO'})
+                return JsonResponse({'status': 'NO'}, status=status.HTTP_400_BAD_REQUEST)  # Error
         else:
-            return JsonResponse({'status': 'User profile not found'})
+            return JsonResponse({'status': 'User profile not found'}, status=status.HTTP_400_BAD_REQUEST)  # Error
 
     except Exception as e:
-        return JsonResponse({'status': 'Error', 'message': str(e)})
+        return JsonResponse({'status': 'Error', 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)  # Error
 
 @csrf_exempt
 def get_user_profile_by_access_token(access_token):
@@ -179,7 +179,7 @@ def get_user_info(request):
 
                         serializer = UserProfileSerializer(user_profile)
                         return Response(serializer.data)
-                    except User.DoesNotExist:
+                    except UserProfile.DoesNotExist:
                         return Response({'error': '유저를 찾을 수 없습니다.'}, status=404)
 
             except UserProfile.DoesNotExist:
@@ -191,7 +191,7 @@ def get_user_info(request):
         except jwt.DecodeError:
             return Response({'error': 'JWT 토큰을 디코딩하는 데 실패했습니다.'}, status=400)
         except User.DoesNotExist:
-            return Response({'error': '유저를 찾을 수 없습니다.'}, status=404)
+            return Response({'user_profiles': []}, status=200)
     else:
         return Response({'error': 'JWT 토큰이 요청에 포함되어야 합니다.'}, status=400)
 
@@ -223,7 +223,7 @@ def set_user_info(request):
         except jwt.DecodeError:
             return Response({'error': 'JWT 토큰을 디코딩하는 데 실패했습니다.'}, status=status.HTTP_400_BAD_REQUEST)
         except User.DoesNotExist:
-            return Response({'error': '유저를 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'user_profiles': []}, status=status.HTTP_404_NOT_FOUND)
     else:
         return Response({'error': 'JWT 토큰이 요청에 포함되어야 합니다.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -278,10 +278,12 @@ def search_user_profiles(request):
                         time_difference = current_time - latest_login_attempt.request_time
 
                         # 차이가 5초 이하인 경우, 로그인 상태로 간주합니다.
-                        if time_difference.total_seconds() <= 30:
+                        if time_difference.total_seconds() <= 300:
                             user_profile['is_login'] = True
 
                 return JsonResponse({'user_profiles': user_profiles_list}, safe=False, status=200)
+            except User.DoesNotExist:
+                return Response({'user_profiles': []}, status=status.HTTP_200_OK)
             except Exception as e:
                 return JsonResponse({'error': str(e)}, status=500)
 
@@ -289,8 +291,6 @@ def search_user_profiles(request):
             return Response({'error': 'JWT 토큰이 만료되었습니다.'}, status=status.HTTP_401_UNAUTHORIZED)
         except jwt.DecodeError:
             return Response({'error': 'JWT 토큰을 디코딩하는 데 실패했습니다.'}, status=status.HTTP_400_BAD_REQUEST)
-        except User.DoesNotExist:
-            return Response({'error': '유저를 찾을 수 없습니다.'}, status=status.HTTP_200_OK)
     else:
         return Response({'error': 'JWT 토큰이 요청에 포함되어야 합니다.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -318,14 +318,14 @@ def set_user_info_image(request):
             # 이후에 필요한 추가 작업 수행
             # 예: UserProfile 모델에 파일 URL 저장
 
-            return Response({'file_url': file_url})
+            return Response({'file_url': file_url}, status=status.HTTP_200_OK)
 
         except jwt.ExpiredSignatureError:
             return Response({'error': 'JWT 토큰이 만료되었습니다.'}, status=status.HTTP_401_UNAUTHORIZED)
         except jwt.DecodeError:
             return Response({'error': 'JWT 토큰을 디코딩하는 데 실패했습니다.'}, status=status.HTTP_400_BAD_REQUEST)
         except User.DoesNotExist:
-            return Response({'error': '유저를 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'user_profiles': []}, status=status.HTTP_404_NOT_FOUND)
     else:
         return Response({'error': 'JWT 토큰이 요청에 포함되어야 합니다.'}, status=status.HTTP_400_BAD_REQUEST)
 

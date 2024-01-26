@@ -3,6 +3,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from .models import LoginHistories
 from django.utils import timezone
+from rest_framework.response import Response
+from rest_framework import status
 import jwt
 from django.conf import settings
 
@@ -32,7 +34,10 @@ def save_login_info(request):
             # 성공 응답을 반환합니다.
             return JsonResponse({'message': 'Login 정보를 성공적으로 저장했습니다'}, status=201)
 
-        except Exception as e:
-            # 예외가 발생하면 에러 응답을 반환합니다.
-            return JsonResponse({'error': str(e)}, status=500)
+        except jwt.ExpiredSignatureError:
+            return Response({'error': 'JWT 토큰이 만료되었습니다.'}, status=status.HTTP_401_UNAUTHORIZED)
+        except jwt.DecodeError:
+            return Response({'error': 'JWT 토큰을 디코딩하는 데 실패했습니다.'}, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        return Response({'error': 'JWT 토큰이 요청에 포함되어야 합니다.'}, status=status.HTTP_400_BAD_REQUEST)
 
