@@ -4,12 +4,13 @@ from django.views.decorators.http import require_http_methods
 from .models import LoginHistories
 from django.utils import timezone
 from rest_framework.response import Response
+from rest_framework.decorators import api_view
 from rest_framework import status
 import jwt
 from django.conf import settings
 
 
-@require_http_methods(["POST"])
+@api_view(["POST"])
 @csrf_exempt
 def save_login_info(request):
     jwt_token = request.META.get("HTTP_JWT")
