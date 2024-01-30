@@ -1,5 +1,6 @@
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.layers import get_channel_layer
+from channels.db import database_sync_to_async
 from django.conf import settings
 from users.models import UserProfile
 import json
@@ -357,7 +358,7 @@ class PongConsumer(AsyncWebsocketConsumer):
 			PongConsumer.groups_info[self.my_group]['task'] = asyncio.create_task(self.main_loop())
 
 	async def disconnect(self, close_code):
-		if self.my_group in PongConsumer.groups:
+		if self.my_group in PongConsumer.groups_info:
 			PongConsumer.groups_info[self.my_group]['task'].cancel()
 		if self.channel_name in PongConsumer.groups[self.my_group]:
 			PongConsumer.groups[self.my_group].remove(self.channel_name)
@@ -374,7 +375,9 @@ class PongConsumer(AsyncWebsocketConsumer):
 				}
 			)
 		await PongConsumer.channel_layer.group_discard(PongConsumer.channel_group, self.channel_name)
-		if self.my_group in PongConsumer.groups and len(PongConsumer.groups[self.my_group]) == 0:
+		if (self.my_group in PongConsumer.groups and 
+	  		self.my_group in PongConsumer.groups_info and 
+			len(PongConsumer.groups[self.my_group]) == 0):
 			del PongConsumer.groups[self.my_group]
 			del PongConsumer.groups_info[self.my_group]
 		
@@ -392,6 +395,9 @@ class PongConsumer(AsyncWebsocketConsumer):
 			PongConsumer.groups_info[self.my_group][position_key][2] += direction
 			await self.moving_bar_bounding_box(PongConsumer.groups_info[self.my_group][box_key], direction)
 
+	def get_nick_name(self):
+		return UserProfile.objects.get(intra_pk_id=self.my_pk_id).intra_id
+
 	async def receive(self, text_data):
 		data = json.loads(text_data)
 
@@ -402,9 +408,8 @@ class PongConsumer(AsyncWebsocketConsumer):
 		elif data['type'] == 'jwt':
 			decoded_payload = jwt.decode(data['jwt'], settings.SECRET_KEY, algorithm='HS256')
 			self.my_pk_id = decoded_payload['intra_pk_id']
-			if UserProfile.objects.filter(intra_pk_id=self.my_pk_id).exists():
-				self.nick_name = UserProfile.objects.get(intra_pk_id=self.my_pk_id).nick_name
-			while len(PongConsumer.groups[self.my_group]) < 2:
+			self.nick_name = await database_sync_to_async(self.get_nick_name)()
+			while self.my_group in PongConsumer.groups and len(PongConsumer.groups[self.my_group]) < 2:
 				await asyncio.sleep(0.1)
 			if self.player_num == 1:
 				await PongConsumer.channel_layer.group_send(
