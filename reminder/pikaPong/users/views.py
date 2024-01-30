@@ -240,8 +240,7 @@ def search_user_profiles(request):
             key_word = request.GET.get('key_word')  # URL query parameter for the search keyword
 
             if not key_word:
-                return JsonResponse({'error': 'Missing key_word'}, status=400)
-
+                return Response({'user_profiles': []}, status=status.HTTP_200_OK)
             try:
                 # Step 1: Query UserProfile records where intra_id contains the key_word
                 user_profiles = UserProfile.objects.filter(Q(intra_id__icontains=key_word))
