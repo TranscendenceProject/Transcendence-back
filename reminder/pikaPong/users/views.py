@@ -1,4 +1,5 @@
 import json
+import os
 import secrets
 from datetime import datetime, timedelta
 from django.db.models import Q
@@ -27,6 +28,9 @@ from loginHistories.models import LoginHistories
 from django.utils import timezone
 from datetime import timedelta
 
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     # Replace the serializer with your custom
@@ -39,16 +43,21 @@ class CustomTokenRefreshView(TokenRefreshView):
 #     return HttpResponse('index!')
 
 def get_resource_owner_42_id(request, code):
+
+    http_protocol = os.environ['HTTP_PROTOCOL']
+    front_ip = os.environ['FRONT_IP']
+    front_port = os.environ['FRONT_PORT']
+
     try:
         # 토큰 받기 위한 요청
         token_response = requests.post(
             'https://api.intra.42.fr/oauth/token',
             json={
                 'grant_type': 'authorization_code',
-                'client_id': 'u-s4t2ud-b677e803809d207e81ae3a321bdf542af8d318ca330d81824e4b972bca224918',
-                'client_secret': "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",
+                'client_id': os.environ['FT_CLIENT_ID'],
+                'client_secret': os.environ['FT_CLIENT_SECRET'],
                 'code': code,
-                'redirect_uri': "http://127.0.0.1:3000"
+                'redirect_uri': f"{http_protocol}://{front_ip}:{front_port}"
             },
             headers={'Content-Type': 'application/json'}
         )

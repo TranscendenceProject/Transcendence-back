@@ -11,7 +11,10 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from pathlib import Path
+from dotenv import load_dotenv
 import os
+
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -28,7 +31,9 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-s9976%^!b_4zlbp%$zrqd-d&7&wp4)7=$&)@8u6_)1g9f%ax_i'
+SECRET_KEY = os.environ['SECRET_KEY']
+FT_CLIENT_ID = os.environ['FT_CLIENT_ID']
+FT_CLIENT_SECRET = os.environ['FT_CLIENT_SECRET']
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -120,11 +125,11 @@ WSGI_APPLICATION = 'pikaPong.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'pikapong',
-        'USER': 'admin',
-        'PASSWORD': 'admin',
-        'HOST': 'localhost',  # 또는 PostgreSQL 서버의 주소
-        'PORT': '',  # PostgreSQL 서버의 포트 (기본값 사용 시 비워둠)
+        'NAME': os.environ['DATABASE_NAME'],
+        'USER': os.environ['DATABASE_USER'],
+        'PASSWORD': os.environ['DATABASE_PASSWORD'],
+        'HOST': os.environ['DATABASE_HOST'],  # 또는 PostgreSQL 서버의 주소
+        'PORT': os.environ['DATABASE_PORT'],  # PostgreSQL 서버의 포트 (기본값 사용 시 비워둠)
     }
 }
 
@@ -168,8 +173,8 @@ USE_TZ = True
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
+EMAIL_HOST = os.environ['EMAIL_HOST']
+EMAIL_PORT = os.environ['EMAIL_PORT']
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'ejae8319@gmail.com'  # 실제 Gmail 주소
-EMAIL_HOST_PASSWORD = 'rvxv gbut xibt czts'  # 실제 Gmail 비밀번호 또는 앱 비밀번호
+EMAIL_HOST_USER = os.environ['EMAIL_HOST_USER']  # 실제 Gmail 주소
+EMAIL_HOST_PASSWORD = os.environ['EMAIL_HOST_PASSWORD']  # 실제 Gmail 비밀번호 또는 앱 비밀번호
