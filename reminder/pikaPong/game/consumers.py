@@ -1,6 +1,9 @@
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.layers import get_channel_layer
+from django.conf import settings
+from users.models import UserProfile
 import json
+import jwt
 import numpy as np
 import asyncio
 
@@ -24,7 +27,6 @@ class PongConsumer(AsyncWebsocketConsumer):
 
 	ground_height = 6.0
 	ground_width = 5.0
-
 
 	async def get_group_member_count(self, channel_name):
 		for group_name, members in PongConsumer.groups.items():
@@ -297,13 +299,6 @@ class PongConsumer(AsyncWebsocketConsumer):
 				'p2_bar_position': p2_bar_position,
 			}))
 
-	async def send_disconnect_message(self, event):
-		users = event['users']
-		if self.channel_name in users:
-			await self.send(text_data=json.dumps({
-				'type': 'disconnect_message',
-			}))
-
 	async def send_game_over_disconnected(self, event):
 		users = event['users']
 		detail = event['detail']
@@ -314,6 +309,33 @@ class PongConsumer(AsyncWebsocketConsumer):
 				'winner': winner,
 				'detail': detail
 			}))
+	
+	async def send_nick_name(self, event):
+		users = event['users']
+		p1_nick_name = event['p1_nick_name']
+		p2_nick_name = event['p2_nick_name']
+		if self.channel_name in users:
+			await self.send(text_data=json.dumps({
+				'type': 'nick_name',
+				'p1_nick_name': p1_nick_name,
+				'p2_nick_name': p2_nick_name
+			}))
+
+	async def send_player_1(self, event):
+		users = event['users']
+		nick_name = event['nick_name']
+		if self.channel_name in users and self.player_num == 2:
+			player_1_nick_name = nick_name
+			await PongConsumer.channel_layer.group_send(
+				PongConsumer.channel_group,
+				{
+					'type': 'send_nick_name',
+					'users': PongConsumer.groups[self.my_group],
+					'p1_nick_name': player_1_nick_name,
+					'p2_nick_name': self.nick_name
+				}
+			
+			)
 
 	async def connect(self):
 		await self.accept()
@@ -323,7 +345,7 @@ class PongConsumer(AsyncWebsocketConsumer):
 			self.player_num = 1
 			await self.send(text_data=json.dumps({
 				'type': 'player_num',
-				'player_num': 1
+				'player_num': 1,
 			}))
 		elif my_group_member_count == 2:
 			self.player_num = 2
@@ -376,3 +398,20 @@ class PongConsumer(AsyncWebsocketConsumer):
 		if data['type'] == 'keydown':
 			if self.my_group in PongConsumer.groups_info:
 				await self.handle_keydown(data)
+
+		elif data['type'] == 'jwt':
+			decoded_payload = jwt.decode(data['jwt'], settings.SECRET_KEY, algorithm='HS256')
+			self.my_pk_id = decoded_payload['intra_pk_id']
+			if UserProfile.objects.filter(intra_pk_id=self.my_pk_id).exists():
+				self.nick_name = UserProfile.objects.get(intra_pk_id=self.my_pk_id).nick_name
+			while len(PongConsumer.groups[self.my_group]) < 2:
+				await asyncio.sleep(0.1)
+			if self.player_num == 1:
+				await PongConsumer.channel_layer.group_send(
+					PongConsumer.channel_group,
+					{
+						'type': 'send_player_1',
+						'users': PongConsumer.groups[self.my_group],
+						'nick_name': self.nick_name,
+					}
+				)

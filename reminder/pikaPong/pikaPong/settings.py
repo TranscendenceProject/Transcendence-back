@@ -121,7 +121,7 @@ TEMPLATES = [
     },
 ]
 
-ASGI_APPLICATION = "multi_pong.asgi.application"
+ASGI_APPLICATION = "pikaPong.asgi.application"
 
 WSGI_APPLICATION = 'pikaPong.wsgi.application'
 
