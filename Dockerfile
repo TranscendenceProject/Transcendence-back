@@ -1,7 +1,7 @@
 FROM python:3.12-slim-bullseye
 
 RUN apt update && apt install -y libpq-dev redis
-RUN service redis-server start
+RUN redis-server --daemonize yes
 
 ENV PYTHONUNBUFFERED=1
 
