@@ -34,8 +34,18 @@ class TournamentPongConsumer(AsyncWebsocketConsumer):
 		self.my_pk_id = jwt.decode(token, settings.SECRET_KEY, algorithm='HS256')['intra_pk_id']
 		self.nick_name = await TournamentPongConsumer.get_name(self.my_pk_id)
 
-		# 빈 토너먼트 방에 참여
-        self.tournament_group_name = f"tournament_{self.tournament_id}"
+		# 토너먼트 방에 참여 TODO: tournaments 중에 이미 my_pk_id가 있으면 그 방 번호로 조인(재접속 관련)
+        for i, tournament in enumerate(TournamentPongConsumer.tournaments, 1):
+            # 4명 안 찬 방 있으면 그곳으로 조인
+            if len(tournament) is not 4:
+                self.tournament_group_name = f"tournament_{i}"
+                tournament.append(self.my_pk_id)
+                break
+            # 마지막 토너먼트까지 꽉차있으면 새 토너먼트 개설
+            if i is len(tournaments) - 1:
+                self.tournament_group_name = f"tournament_{i+1}"
+                tournaments.append([self.my_pk_id])
+                break
 
         # 채널에 추가
         await self.channel_layer.group_add(
@@ -44,6 +54,8 @@ class TournamentPongConsumer(AsyncWebsocketConsumer):
         )
 
         await self.accept()
+
+        # 해당 채널 그룹에 방에 입장했다고 브로드캐스팅
 
     async def disconnect(self, close_code):
         # 토너먼트 그룹에서 나가기
