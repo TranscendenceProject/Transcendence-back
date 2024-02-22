@@ -236,6 +236,41 @@ def set_user_info(request):
     else:
         return Response({'error': 'JWT 토큰이 요청에 포함되어야 합니다.'}, status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(['POST'])
+@csrf_exempt
+def add_game_result_to_histories(request):
+    jwt_token = request.META.get("HTTP_JWT")
+
+    if jwt_token:
+        try:
+
+            decoded_payload = jwt.decode(jwt_token, settings.SECRET_KEY, algorithm='HS256')
+            print("JWT 토큰 인증 완료")
+            intra_pk_id = decoded_payload['intra_pk_id']
+
+            # 요청 바디에서 JSON 데이터를 로드합니다.
+            data = json.loads(request.body.decode('utf-8'))
+            game_result = data.get('histories')
+
+            # 해당 UserProfile 인스턴스를 찾습니다.
+            user_profile = UserProfile.objects.get(intra_pk_id=intra_pk_id)
+
+            # 기존 histories 데이터에 새 게임 결과를 추가합니다.
+            current_histories = user_profile.histories
+            current_histories.append(game_result)
+
+            # 변경된 histories 데이터를 저장합니다.
+            user_profile.histories = current_histories
+            user_profile.save()
+
+            return JsonResponse({'message': 'Game result added successfully.'}, status=200)
+        except UserProfile.DoesNotExist:
+            return JsonResponse({'error': 'UserProfile not found.'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    else:
+        return JsonResponse({'error': 'Invalid request method.'}, status=405)
+
 @api_view(['GET'])
 @csrf_exempt
 def search_user_profiles(request):
