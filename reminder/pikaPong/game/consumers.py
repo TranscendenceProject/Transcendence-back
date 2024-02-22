@@ -215,7 +215,6 @@ class PongConsumer(AsyncWebsocketConsumer):
 						'winner': 2
 					}
 				)
-				database_sync_to_async(self.send_game_result)()
 			await asyncio.sleep(1)
 
 		elif await self.check_box_plane_collision(PongConsumer.groups_info[self.my_group]['sphere_bounding_box'], PongConsumer.groups_info[self.my_group]['lower_plane_normal'], PongConsumer.groups_info[self.my_group]['lower_plane_constant']):
@@ -240,7 +239,6 @@ class PongConsumer(AsyncWebsocketConsumer):
 						'winner': 1
 					}
 				)
-				database_sync_to_async(self.send_game_result)()
 			await asyncio.sleep(1)
 
 		elif await self.check_box_plane_collision(PongConsumer.groups_info[self.my_group]['sphere_bounding_box'], PongConsumer.groups_info[self.my_group]['left_plane_normal'], PongConsumer.groups_info[self.my_group]['left_plane_constant']):
@@ -304,6 +302,9 @@ class PongConsumer(AsyncWebsocketConsumer):
 			}))
 
 	async def send_game_over_disconnected(self, event):
+		if (PongConsumer.groups_info[self.my_group]['player_1_score'] >= PongConsumer.end_score or 
+			PongConsumer.groups_info[self.my_group]['player_2_score'] >= PongConsumer.end_score):
+			await database_sync_to_async(self.send_game_result)()
 		users = event['users']
 		detail = event['detail']
 		winner = event['winner']
@@ -340,16 +341,31 @@ class PongConsumer(AsyncWebsocketConsumer):
 				}
 			)
 
+	async def send_p1_profile(self, event):
+		users = event['users']
+		if self.channel_name in users and self.player_num == 2:
+			self.opponent_intra_pk_id = event['intra_pk_id'],
+			self.opponent_intra_id = event['intra_id'],
+			self.opponent_nick_name = event['nick_name'],
+
+	async def send_p2_profile(self, event):
+		users = event['users']
+		if self.channel_name in users and self.player_num == 1:
+			self.opponent_intra_pk_id = event['intra_pk_id'],
+			self.opponent_intra_id = event['intra_id'],
+			self.opponent_nick_name = event['nick_name'],
+
 	async def connect(self):
 		await self.accept()
 		self.my_group = await self.add_to_group(self.channel_name)
 		my_group_member_count = await self.get_group_member_count(self.channel_name)
+		self.current_time = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 		if my_group_member_count == 1:
 			self.player_num = 1
 			await self.send(text_data=json.dumps({
 				'type': 'player_num',
 				'player_num': 1,
-			}))
+			}))			
 		elif my_group_member_count == 2:
 			self.player_num = 2
 			await self.send(text_data=json.dumps({
@@ -357,7 +373,6 @@ class PongConsumer(AsyncWebsocketConsumer):
 				'player_num': 2
 			}))
 			await self.initialize_group()
-			self.current_time = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 			PongConsumer.groups_info[self.my_group]['task'] = asyncio.create_task(self.main_loop())
 
 	async def disconnect(self, close_code):
@@ -379,11 +394,15 @@ class PongConsumer(AsyncWebsocketConsumer):
 		if (self.my_group in PongConsumer.groups and 
 	  		self.my_group in PongConsumer.groups_info and 
 			len(PongConsumer.groups[self.my_group]) == 0):
-			database_sync_to_async(self.send_game_result_disconnect_win)()
+			if (PongConsumer.groups_info[self.my_group]['player_1_score'] < PongConsumer.end_score and 
+				PongConsumer.groups_info[self.my_group]['player_2_score'] < PongConsumer.end_score):
+				await database_sync_to_async(self.send_game_result_disconnect_win)()
 			del PongConsumer.groups[self.my_group]
 			del PongConsumer.groups_info[self.my_group]
 		else:
-			database_sync_to_async(self.send_game_result_disconnect_lose)()
+			if (PongConsumer.groups_info[self.my_group]['player_1_score'] < PongConsumer.end_score and 
+				PongConsumer.groups_info[self.my_group]['player_2_score'] < PongConsumer.end_score):
+				await database_sync_to_async(self.send_game_result_disconnect_lose)()
 		
 	async def handle_keydown(self, data):
 		player_key = f"p{data['player_num']}_bar"
@@ -411,7 +430,8 @@ class PongConsumer(AsyncWebsocketConsumer):
 			decoded_payload = jwt.decode(data['jwt'], settings.SECRET_KEY, algorithm='HS256')
 			self.my_pk_id = decoded_payload['intra_pk_id']
 			self.user_profile = await database_sync_to_async(self.get_user_profile)()
-			self.nick_name = self.user_profile.nick_name
+			self.nick_name = self.user_profile.intra_id
+			print(self.nick_name)
 			while self.my_group in PongConsumer.groups and len(PongConsumer.groups[self.my_group]) < 2:
 				await asyncio.sleep(0.1)
 			if self.player_num == 1:
@@ -423,17 +443,40 @@ class PongConsumer(AsyncWebsocketConsumer):
 						'nick_name': self.nick_name,
 					}
 				)
+			if self.player_num == 1:
+				await PongConsumer.channel_layer.group_send(
+					PongConsumer.channel_group,
+					{
+						'type': 'send_p1_profile',
+						'users': PongConsumer.groups[self.my_group],
+						'intra_pk_id': self.user_profile.intra_pk_id,
+						'intra_id': self.user_profile.intra_id,
+						'nick_name': self.user_profile.nick_name,
+					}
+				)
+			elif self.player_num == 2:
+				await PongConsumer.channel_layer.group_send(
+					PongConsumer.channel_group,
+					{
+						'type': 'send_p2_profile',
+						'users': PongConsumer.groups[self.my_group],
+						'intra_pk_id': self.user_profile.intra_pk_id,
+						'intra_id': self.user_profile.intra_id,
+						'nick_name': self.user_profile.nick_name,
+					}
+				)
 
 	#database 소통 관련
 	def get_user_profile(self):
 		return UserProfile.objects.get(intra_pk_id=self.my_pk_id)
 
-	def send_game_result():
+	def send_game_result(self):
+		print("정상 게임 결과")
 		game_result = [
 			{
-				'intra_pk_id': self.my_pk_id,
-				'intra_id': self.user_profile.intra_id,
-				'nick_name': self.nick_name,
+				'intra_pk_id': self.opponent_intra_pk_id,
+				'intra_id': self.opponent_intra_id,
+				'nick_name': self.opponent_nick_name,
 				'start_time': self.current_time,
 				'score': PongConsumer.groups_info[self.my_group][f'player_{self.player_num}_score'],
 				'opponent_score': PongConsumer.groups_info[self.my_group][f'player_{3 - self.player_num}_score'],
@@ -441,13 +484,15 @@ class PongConsumer(AsyncWebsocketConsumer):
 			}
 		]
 		self.user_profile.histories.append(game_result)
+		self.user_profile.save()
 	
-	def send_game_result_disconnect_win():
+	def send_game_result_disconnect_win(self):
+		print("게임 결과 저장(승리)")
 		game_result = [
 			{
-				'intra_pk_id': self.my_pk_id,
-				'intra_id': self.user_profile.intra_id,
-				'nick_name': self.nick_name,
+				'intra_pk_id': self.opponent_intra_pk_id,
+				'intra_id': self.opponent_intra_id,
+				'nick_name': self.opponent_nick_name,
 				'start_time': self.current_time,
 				'score': PongConsumer.groups_info[self.my_group][f'player_{self.player_num}_score'],
 				'opponent_score': PongConsumer.groups_info[self.my_group][f'player_{3 - self.player_num}_score'],
@@ -455,13 +500,15 @@ class PongConsumer(AsyncWebsocketConsumer):
 			}
 		]
 		self.user_profile.histories.append(game_result)
+		self.user_profile.save()
 
-	def send_game_result_disconnect_lose():
-			game_result = [
+	def send_game_result_disconnect_lose(self):
+		print("게임 결과 저장(패배)")
+		game_result = [
 			{
-				'intra_pk_id': self.my_pk_id,
-				'intra_id': self.user_profile.intra_id,
-				'nick_name': self.nick_name,
+				'intra_pk_id': self.opponent_intra_pk_id,
+				'intra_id': self.opponent_intra_id,
+				'nick_name': self.opponent_nick_name,
 				'start_time': self.current_time,
 				'score': PongConsumer.groups_info[self.my_group][f'player_{self.player_num}_score'],
 				'opponent_score': PongConsumer.groups_info[self.my_group][f'player_{3 - self.player_num}_score'],
@@ -469,3 +516,4 @@ class PongConsumer(AsyncWebsocketConsumer):
 			}
 		]
 		self.user_profile.histories.append(game_result)
+		self.user_profile.save()
