@@ -24,7 +24,7 @@ import game.routing
 
 application = ProtocolTypeRouter({
     # Django's ASGI application to handle traditional HTTP requests
-    "https": django_asgi_app,
+    "http": django_asgi_app,
 
     # WebSocket chat handler
     "websocket": AllowedHostsOriginValidator(
