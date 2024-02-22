@@ -17,4 +17,4 @@ RUN mkcert -key-file key.pem -cert-file cert.pem localhost 127.0.0.1 ::1
 RUN pip install psycopg2-binary
 RUN pip install -r requirements.txt 
 
-CMD ["bash", "-c", "redis-server --daemonize yes && python manage.py makemigrations && python manage.py migrate && python manage.py runsslserver 0.0.0.0:8000 --certificate cert.pem --key key.pem"]
+CMD ["bash", "-c", "redis-server --daemonize yes && python manage.py makemigrations && python manage.py migrate && daphne -e ssl:8000:privateKey=key.pem:certKey=cert.pem pikaPong.asgi:application"]
