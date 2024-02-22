@@ -30,6 +30,7 @@ urlpatterns = [
     path('info/read', views.get_user_info, name='get_user_info'),
     path('info/update', views.set_user_info, name='set_user_info'),
     path('info/update/image', views.set_user_info_image, name='set_user_info_image'),
+    path('info/add_game_result/', views.add_game_result_to_histories, name='add_game_result_to_histories'),
     path('info/search', views.search_user_profiles, name='search_user_profiles'),
 
     path('token/', views.CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
