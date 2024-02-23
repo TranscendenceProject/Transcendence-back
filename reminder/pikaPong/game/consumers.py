@@ -30,6 +30,13 @@ class PongConsumer(AsyncWebsocketConsumer):
 	ground_height = 6.0
 	ground_width = 5.0
 
+	async def initialize_userinfo_attributes(self):
+		self.user_profile = None
+		self.nick_name = ""
+		self.opponent_intra_id = ""
+		self.opponent_nick_name = ""
+		self.opponent_intra_pk_id = 0
+
 	async def get_group_member_count(self, channel_name):
 		for group_name, members in PongConsumer.groups.items():
 			if channel_name in members:
@@ -331,6 +338,8 @@ class PongConsumer(AsyncWebsocketConsumer):
 		nick_name = event['nick_name']
 		if self.channel_name in users and self.player_num == 2:
 			player_1_nick_name = nick_name
+			print(f'player_1_nick_name: {player_1_nick_name}')
+			print(f'player_2_nick_name: {self.nick_name}')
 			await PongConsumer.channel_layer.group_send(
 				PongConsumer.channel_group,
 				{
@@ -347,6 +356,7 @@ class PongConsumer(AsyncWebsocketConsumer):
 			self.opponent_intra_pk_id = event['intra_pk_id'],
 			self.opponent_intra_id = event['intra_id'],
 			self.opponent_nick_name = event['nick_name'],
+			PongConsumer.groups_info[self.my_group]['task'] = asyncio.create_task(self.main_loop())
 
 	async def send_p2_profile(self, event):
 		users = event['users']
@@ -357,6 +367,7 @@ class PongConsumer(AsyncWebsocketConsumer):
 
 	async def connect(self):
 		await self.accept()
+		await self.initialize_userinfo_attributes()
 		self.my_group = await self.add_to_group(self.channel_name)
 		my_group_member_count = await self.get_group_member_count(self.channel_name)
 		self.current_time = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -373,7 +384,7 @@ class PongConsumer(AsyncWebsocketConsumer):
 				'player_num': 2
 			}))
 			await self.initialize_group()
-			PongConsumer.groups_info[self.my_group]['task'] = asyncio.create_task(self.main_loop())
+			# PongConsumer.groups_info[self.my_group]['task'] = asyncio.create_task(self.main_loop())
 
 	async def disconnect(self, close_code):
 		if self.my_group in PongConsumer.groups_info:
@@ -431,9 +442,10 @@ class PongConsumer(AsyncWebsocketConsumer):
 			self.my_pk_id = decoded_payload['intra_pk_id']
 			self.user_profile = await database_sync_to_async(self.get_user_profile)()
 			self.nick_name = self.user_profile.intra_id
-			print(self.nick_name)
 			while self.my_group in PongConsumer.groups and len(PongConsumer.groups[self.my_group]) < 2:
 				await asyncio.sleep(0.1)
+			if self.player_num == 1:
+				await asyncio.sleep(1)
 			if self.player_num == 1:
 				await PongConsumer.channel_layer.group_send(
 					PongConsumer.channel_group,
