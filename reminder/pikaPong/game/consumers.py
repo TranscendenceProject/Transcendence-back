@@ -354,19 +354,19 @@ class PongConsumer(AsyncWebsocketConsumer):
 	async def send_p1_profile(self, event):
 		users = event['users']
 		if self.channel_name in users and self.player_num == 2:
-			self.opponent_intra_pk_id = event['intra_pk_id'],
-			self.opponent_intra_id = event['intra_id'],
-			self.opponent_nick_name = event['nick_name'],
-			self.is_game_started = True,
+			self.opponent_intra_pk_id = event['intra_pk_id']
+			self.opponent_intra_id = event['intra_id']
+			self.opponent_nick_name = event['nick_name']
+			self.is_game_started = True
 			PongConsumer.groups_info[self.my_group]['task'] = asyncio.create_task(self.main_loop())
 
 	async def send_p2_profile(self, event):
 		users = event['users']
 		if self.channel_name in users and self.player_num == 1:
-			self.opponent_intra_pk_id = event['intra_pk_id'],
-			self.opponent_intra_id = event['intra_id'],
-			self.is_game_started = True,
-			self.opponent_nick_name = event['nick_name'],
+			self.opponent_intra_pk_id = event['intra_pk_id']
+			self.opponent_intra_id = event['intra_id']
+			self.is_game_started = True
+			self.opponent_nick_name = event['nick_name']
 
 	async def connect(self):
 		print("connectconnectconnectconnectconnectconnectconnectconnectconnectconnectconnectconnect")
