@@ -31,6 +31,7 @@ class PongConsumer(AsyncWebsocketConsumer):
 	ground_width = 5.0
 
 	async def initialize_userinfo_attributes(self):
+		self.is_game_started = False
 		self.user_profile = None
 		self.nick_name = ""
 		self.opponent_intra_id = ""
@@ -356,6 +357,7 @@ class PongConsumer(AsyncWebsocketConsumer):
 			self.opponent_intra_pk_id = event['intra_pk_id'],
 			self.opponent_intra_id = event['intra_id'],
 			self.opponent_nick_name = event['nick_name'],
+			self.is_game_started = True,
 			PongConsumer.groups_info[self.my_group]['task'] = asyncio.create_task(self.main_loop())
 
 	async def send_p2_profile(self, event):
@@ -363,9 +365,11 @@ class PongConsumer(AsyncWebsocketConsumer):
 		if self.channel_name in users and self.player_num == 1:
 			self.opponent_intra_pk_id = event['intra_pk_id'],
 			self.opponent_intra_id = event['intra_id'],
+			self.is_game_started = True,
 			self.opponent_nick_name = event['nick_name'],
 
 	async def connect(self):
+		print("connectconnectconnectconnectconnectconnectconnectconnectconnectconnectconnectconnect")
 		await self.accept()
 		await self.initialize_userinfo_attributes()
 		self.my_group = await self.add_to_group(self.channel_name)
@@ -387,33 +391,44 @@ class PongConsumer(AsyncWebsocketConsumer):
 			# PongConsumer.groups_info[self.my_group]['task'] = asyncio.create_task(self.main_loop())
 
 	async def disconnect(self, close_code):
-		if self.my_group in PongConsumer.groups_info and PongConsumer.groups_info[self.my_group]['task'] is not None:
-			PongConsumer.groups_info[self.my_group]['task'].cancel()
-		if self.channel_name in PongConsumer.groups[self.my_group]:
-			PongConsumer.groups[self.my_group].remove(self.channel_name)
-		if (self.my_group in PongConsumer.groups_info and 
-			PongConsumer.groups_info[self.my_group]['player_1_score'] < PongConsumer.end_score and 
-			PongConsumer.groups_info[self.my_group]['player_2_score'] < PongConsumer.end_score):
-			await self.channel_layer.group_send(
-				PongConsumer.channel_group,
-				{
-					'type': 'send_game_over_disconnected',
-					'users': PongConsumer.groups[self.my_group],
-					'winner': 3 - self.player_num,
-					'detail': 'game_over_disconnected'
-				})
-		if (self.my_group in PongConsumer.groups and 
-	  		self.my_group in PongConsumer.groups_info and 
-			len(PongConsumer.groups[self.my_group]) == 0):
-			if (PongConsumer.groups_info[self.my_group]['player_1_score'] < PongConsumer.end_score and 
+		print("disconnectdisconnectdisconnectdisconnectdisconnectdisconnectdisconnectdisconnectdisconnectdisconnectdisconnectd")
+		if self.is_game_started:
+			if self.my_group in PongConsumer.groups_info and PongConsumer.groups_info[self.my_group]['task'] is not None:
+				PongConsumer.groups_info[self.my_group]['task'].cancel()
+			if self.channel_name in PongConsumer.groups[self.my_group]:
+				PongConsumer.groups[self.my_group].remove(self.channel_name)
+			if (self.my_group in PongConsumer.groups_info and 
+				PongConsumer.groups_info[self.my_group]['player_1_score'] < PongConsumer.end_score and 
 				PongConsumer.groups_info[self.my_group]['player_2_score'] < PongConsumer.end_score):
-				await database_sync_to_async(self.send_game_result_disconnect_win)()
-			del PongConsumer.groups[self.my_group]
-			del PongConsumer.groups_info[self.my_group]
+				await self.channel_layer.group_send(
+					PongConsumer.channel_group,
+					{
+						'type': 'send_game_over_disconnected',
+						'users': PongConsumer.groups[self.my_group],
+						'winner': 3 - self.player_num,
+						'detail': 'game_over_disconnected'
+					})
+			if (self.my_group in PongConsumer.groups and 
+				self.my_group in PongConsumer.groups_info and 
+				len(PongConsumer.groups[self.my_group]) == 0):
+				if (PongConsumer.groups_info[self.my_group]['player_1_score'] < PongConsumer.end_score and 
+					PongConsumer.groups_info[self.my_group]['player_2_score'] < PongConsumer.end_score):
+					await database_sync_to_async(self.send_game_result_disconnect_win)()
+				del PongConsumer.groups[self.my_group]
+				del PongConsumer.groups_info[self.my_group]
+			else:
+				if (PongConsumer.groups_info[self.my_group]['player_1_score'] < PongConsumer.end_score and 
+					PongConsumer.groups_info[self.my_group]['player_2_score'] < PongConsumer.end_score):
+					await database_sync_to_async(self.send_game_result_disconnect_lose)()
 		else:
-			if (PongConsumer.groups_info[self.my_group]['player_1_score'] < PongConsumer.end_score and 
-				PongConsumer.groups_info[self.my_group]['player_2_score'] < PongConsumer.end_score):
-				await database_sync_to_async(self.send_game_result_disconnect_lose)()
+			print("else 1")
+			if self.channel_name in PongConsumer.groups[self.my_group]:
+				print("channel_name delete")
+				PongConsumer.groups[self.my_group].remove(self.channel_name)
+			if (self.my_group in PongConsumer.groups and 
+				len(PongConsumer.groups[self.my_group]) == 0):
+				del PongConsumer.groups[self.my_group]
+				print(len(PongConsumer.groups), "my_group delete")
 		
 	async def handle_keydown(self, data):
 		player_key = f"p{data['player_num']}_bar"
@@ -442,7 +457,11 @@ class PongConsumer(AsyncWebsocketConsumer):
 			self.my_pk_id = decoded_payload['intra_pk_id']
 			self.user_profile = await database_sync_to_async(self.get_user_profile)()
 			self.nick_name = self.user_profile.intra_id
+			temp = 0
 			while self.my_group in PongConsumer.groups and len(PongConsumer.groups[self.my_group]) < 2:
+				if temp % 100 == 0:
+					print("HERE WHILEEEeeHERE WHILEEEeeHERE WHILEEEeeHERE WHILEEEeeHERE WHILEEEeeHERE WHILEEEeeHERE WHILEEE")
+				temp += 1
 				await asyncio.sleep(0.1)
 			if self.player_num == 1:
 				await asyncio.sleep(1)
