@@ -387,7 +387,7 @@ class PongConsumer(AsyncWebsocketConsumer):
 			# PongConsumer.groups_info[self.my_group]['task'] = asyncio.create_task(self.main_loop())
 
 	async def disconnect(self, close_code):
-		if self.my_group in PongConsumer.groups_info:
+		if self.my_group in PongConsumer.groups_info and PongConsumer.groups_info[self.my_group]['task'] is not None:
 			PongConsumer.groups_info[self.my_group]['task'].cancel()
 		if self.channel_name in PongConsumer.groups[self.my_group]:
 			PongConsumer.groups[self.my_group].remove(self.channel_name)
