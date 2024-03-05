@@ -358,6 +358,16 @@ class PongConsumer(AsyncWebsocketConsumer):
 			self.opponent_intra_id = event['intra_id']
 			self.opponent_nick_name = event['nick_name']
 			self.is_game_started = True
+			await PongConsumer.channel_layer.group_send(
+				PongConsumer.channel_group,
+				{
+					'type': 'send_nick_name',
+					'users': PongConsumer.groups[self.my_group],
+					'p1_nick_name': self.opponent_nick_name,
+					'p2_nick_name': self.nick_name
+				}
+			)
+			await sleep(0.5)
 			PongConsumer.groups_info[self.my_group]['task'] = asyncio.create_task(self.main_loop())
 
 	async def send_p2_profile(self, event):
@@ -365,8 +375,18 @@ class PongConsumer(AsyncWebsocketConsumer):
 		if self.channel_name in users and self.player_num == 1:
 			self.opponent_intra_pk_id = event['intra_pk_id']
 			self.opponent_intra_id = event['intra_id']
-			self.is_game_started = True
 			self.opponent_nick_name = event['nick_name']
+			self.is_game_started = True
+			await PongConsumer.channel_layer.group_send(
+				PongConsumer.channel_group,
+				{
+					'type': 'send_p1_profile',
+					'users': PongConsumer.groups[self.my_group],
+					'intra_pk_id': self.user_profile.intra_pk_id,
+					'intra_id': self.user_profile.intra_id,
+					'nick_name': self.user_profile.nick_name,
+				}
+			)
 
 	async def connect(self):
 		print("connectconnectconnectconnectconnectconnectconnectconnectconnectconnectconnectconnect")
@@ -400,7 +420,7 @@ class PongConsumer(AsyncWebsocketConsumer):
 			if (self.my_group in PongConsumer.groups_info and 
 				PongConsumer.groups_info[self.my_group]['player_1_score'] < PongConsumer.end_score and 
 				PongConsumer.groups_info[self.my_group]['player_2_score'] < PongConsumer.end_score):
-				await self.channel_layer.group_send(
+				await PongConsumer.channel_layer.group_send(
 					PongConsumer.channel_group,
 					{
 						'type': 'send_game_over_disconnected',
@@ -457,35 +477,31 @@ class PongConsumer(AsyncWebsocketConsumer):
 			self.my_pk_id = decoded_payload['intra_pk_id']
 			self.user_profile = await database_sync_to_async(self.get_user_profile)()
 			self.nick_name = self.user_profile.intra_id
-			temp = 0
-			while self.my_group in PongConsumer.groups and len(PongConsumer.groups[self.my_group]) < 2:
-				if temp % 100 == 0:
-					print("HERE WHILEEEeeHERE WHILEEEeeHERE WHILEEEeeHERE WHILEEEeeHERE WHILEEEeeHERE WHILEEEeeHERE WHILEEE")
-				temp += 1
-				await asyncio.sleep(0.1)
-			if self.player_num == 1:
-				await asyncio.sleep(1)
-			if self.player_num == 1:
-				await PongConsumer.channel_layer.group_send(
-					PongConsumer.channel_group,
-					{
-						'type': 'send_player_1',
-						'users': PongConsumer.groups[self.my_group],
-						'nick_name': self.nick_name,
-					}
-				)
-			if self.player_num == 1:
-				await PongConsumer.channel_layer.group_send(
-					PongConsumer.channel_group,
-					{
-						'type': 'send_p1_profile',
-						'users': PongConsumer.groups[self.my_group],
-						'intra_pk_id': self.user_profile.intra_pk_id,
-						'intra_id': self.user_profile.intra_id,
-						'nick_name': self.user_profile.nick_name,
-					}
-				)
-			elif self.player_num == 2:
+			# while self.my_group in PongConsumer.groups and len(PongConsumer.groups[self.my_group]) < 2:
+			# 	await asyncio.sleep(0.1)
+			# if self.player_num == 1:
+			# 	await asyncio.sleep(1)
+			# if self.player_num == 1:
+			# 	await PongConsumer.channel_layer.group_send(
+			# 		PongConsumer.channel_group,
+			# 		{
+			# 			'type': 'send_player_1',
+			# 			'users': PongConsumer.groups[self.my_group],
+			# 			'nick_name': self.nick_name,
+			# 		}
+			# 	)
+			# if self.player_num == 1:
+			# 	await PongConsumer.channel_layer.group_send(
+			# 		PongConsumer.channel_group,
+			# 		{
+			# 			'type': 'send_p1_profile',
+			# 			'users': PongConsumer.groups[self.my_group],
+			# 			'intra_pk_id': self.user_profile.intra_pk_id,
+			# 			'intra_id': self.user_profile.intra_id,
+			# 			'nick_name': self.user_profile.nick_name,
+			# 		}
+			# 	)
+			if self.player_num == 2:
 				await PongConsumer.channel_layer.group_send(
 					PongConsumer.channel_group,
 					{
