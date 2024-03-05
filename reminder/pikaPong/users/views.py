@@ -321,7 +321,7 @@ def search_user_profiles(request):
                         time_difference = current_time - latest_login_attempt.request_time
 
                         # 차이가 5초 이하인 경우, 로그인 상태로 간주합니다.
-                        if time_difference.total_seconds() <= 300:
+                        if time_difference.total_seconds() <= 5:
                             user_profile['is_login'] = True
 
                 return JsonResponse({'user_profiles': user_profiles_list}, safe=False, status=200)
