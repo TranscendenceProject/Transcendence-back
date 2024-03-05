@@ -363,11 +363,11 @@ class PongConsumer(AsyncWebsocketConsumer):
 				{
 					'type': 'send_nick_name',
 					'users': PongConsumer.groups[self.my_group],
-					'p1_nick_name': self.opponent_nick_name,
+					'p1_nick_name': self.opponent_intra_id,
 					'p2_nick_name': self.nick_name
 				}
 			)
-			await sleep(0.5)
+			await asyncio.sleep(0.5)
 			PongConsumer.groups_info[self.my_group]['task'] = asyncio.create_task(self.main_loop())
 
 	async def send_p2_profile(self, event):
